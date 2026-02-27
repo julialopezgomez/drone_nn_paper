@@ -1,0 +1,59 @@
+\subsection{Adversarial Robustness with Explainability}
+\label{sec:adv_xai}
+
+Beyond adversarial MSE, we use Local Interpretable Model-agnostic Explanations (LIME)~\cite{ribeiro2016should} to probe how feature reliance shifts under attack and after adversarial training by estimating local per-feature sensitivities around each sample. This complements robustness curves by revealing if the controller depends on a few brittle features or spreads importance across the state.
+
+\subsubsection{LIME Analysis}
+For each test sample $x$, LIME fits a sparse linear surrogate in a neighbourhood of $x$ using perturbed samples and model queries; the surrogate coefficients are treated as local feature importances. For our model, we compute LIME \emph{per output dimension} by explaining one component $f_\theta(x)_j$ at a time. To understand the stability of explanations under adversarial attacks, we generate adversarial inputs using PGD and compare the explanations between clean and attacked versions of the same sample:
+\[
+x_{\mathrm{adv}} = \texttt{PGD}(x;\varepsilon,T,\alpha).
+\]
+We set $\alpha=\varepsilon/T$ (matching our implementation default) and use $\ell_\infty$ PGD.
+
+\paragraph{LIME Drift.}
+To quantify how much the model's \emph{local explanation} changes under attack, we introduce the concept of LIME drift as the $\ell_1$ difference between LIME weight vectors computed on the clean sample and its adversarial counterpart, matched by feature name:
+\begin{equation}
+D_{\mathrm{LIME}}(x) \;=\; \sum_{i=1}^{d} \big| w_i(x) - w_i(x_{\mathrm{adv}})\big|,
+\label{eq:lime_drift}
+\end{equation}
+where $w_i(\cdot)$ denotes the LIME importance weight for feature $i$ (for a fixed output dimension). A \emph{lower} drift indicates more consistent local decision logic under adversarial perturbations.
+
+\paragraph{Per-sample LIME heatmaps.}
+Figures~\ref{fig:lime_normal_per_sample} and~\ref{fig:lime_adv_per_sample} in Appendix~\ref{app:xai} visualise per-sample LIME feature importances (absolute weights) across multiple randomly selected test samples. Each panel shows a heatmap of size (\#outputs $\times$ \#features), revealing which features influence which output dimensions for that sample. The normally trained model shows \emph{concentrated} reliance (sharp peaks) on a few features, while the adversarially trained model exhibits more \emph{diffuse} importance across features and outputs, consistent with reduced sensitivity to bounded worst-case perturbations.
+
+
+\paragraph{Change in feature reliance after adversarial training.}
+To visualise how adversarial training alters local feature reliance, we compute difference maps
+\[
+\Delta w \;=\; w_{\text{adv-trained}} - w_{\text{normal}}.
+\]
+We report both per-sample and aggregated views: Figure~\ref{fig:lime_diff_per_sample} (Appendix~\ref{app:xai}) shows $\Delta w$ for individual test samples, while Figure~\ref{fig:lime_diff_avg} (main paper) reports the mean $\Delta w$ over $n=32$ randomly selected test points.
+Blue indicates decreased local importance after adversarial training and red indicates increased reliance.
+Overall, adversarial training tends to \emph{reduce isolated and wrong attribution spikes} and dampen large shifts in local feature weights. We include only the aggregated difference map (Figure~\ref{fig:lime_diff_avg}) in the main paper; all per-sample heatmaps are deferred to the Appendix for completeness.
+
+\paragraph{Observations.}
+The robustness improvements seen in adversarial MSE are accompanied by improved \emph{explanation stability}: the adversarially trained model exhibits lower mean LIME drift (Eq.~\ref{eq:lime_drift}), indicating more consistent decision logic even when inputs are attacked. Qualitatively, adversarial training encourages the controller to rely less on a narrow set of highly sensitive features and to distribute reliance across the states, which aligns with the observed increase in robustness under PGD.
+
+% ---------------- Figures (update filenames to match your Overleaf project) ----------------
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.8\linewidth]{figs/xai/lime_diff_avg.png}
+    \caption{\textbf{Average change in LIME importance after adversarial training.} $\Delta w$ averaged over $n=32$ random test samples, highlighting systematic shifts in feature reliance induced by adversarial training.}
+    \label{fig:lime_diff_avg}
+\end{figure}
+
+
+\subsubsection{Integrated Gradients}
+We also look into Integrated Gradients (IG)~\cite{sundararajan2017axiomatic} to answer the core question:
+\emph{``Across the entire interpolation path from a baseline input to this sample, how much cumulative effect does feature $i$ have on the output?''}
+% Formally, for baseline $x'$ (we use $x'=0$ by default) and input $x$, the attribution for feature $i$ is:
+% \begin{equation}
+% \mathrm{IG}_i(x) \;=\; (x_i - x'_i)\int_{0}^{1}\frac{\partial f_\theta(x' + \alpha(x-x'))}{\partial x_i}\, d\alpha .
+% \end{equation}
+We compute IG for both $x$ and $x_{\mathrm{adv}}$; paired clean vs.\ adversarial visualisations are provided in Appendix~\ref{app:xai} (Figures~\ref{fig:ig_lime_normal}--\ref{fig:ig_lime_advtrained}). Large IG changes between $x$ and $x_{\mathrm{adv}}$ indicate that the model’s gradient-based sensitivity profile shifts under attack.
+
+\paragraph{Observations.}
+As shown in Figures~\ref{fig:ig_lime_normal}--\ref{fig:ig_lime_advtrained}, the normally trained model exhibits larger attribution changes between clean and adversarial inputs (consistent with higher LIME drift), whereas the adversarially trained model shows smaller changes and lower drift. Overall, adversarial training reduces sharp spikes and makes feature reliance/influence more consistent even under worst-case bounded perturbations, aligning with the robustness trends observed under PGD evaluation.
+
+

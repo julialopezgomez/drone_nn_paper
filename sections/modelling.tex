@@ -1,0 +1,276 @@
+We model a quadcopter drone transporting a payload via a tethered winch mechanism. To improve tractability for verification, the dynamics are simplified with the following assumptions: planar motion in the $x$--$z$ plane; a rigid, symmetric quadcopter with mass concentrated at its centre of mass; a massless, inextensible tether that remains taut; pure axial thrust from the rotors; and no aerodynamic drag or external disturbances. The tether tension is resolved via a quasi-static iteration at each timestep, assumed accurate for sufficiently small integration steps. These assumptions preserve the dominant non-linear couplings between the drone and payload while yielding a model suitable for formal analysis.
+
+\subsection{State, Controls, and Parameters}
+
+The system state captures the planar motion of the quadcopter and the dynamics of the tethered payload:
+\[
+\bm{s} =
+\begin{bmatrix}
+x_q & z_q & \theta & \dot{x}_q & \dot{z}_q & \dot{\theta} & \ell & \phi & \dot{\ell} & \dot{\phi}
+\end{bmatrix}^{\!\top}.
+\]
+
+The control input consists of the individual rotor thrusts and the commanded tether feed rate:
+\[
+\bm{u} =
+\begin{bmatrix}
+T_1 & T_2 & T_3 & T_4 & u_\ell
+\end{bmatrix}^{\!\top}.
+\]
+
+Here, $x_q$ and $z_q$ denote the quadcopter centre-of-mass position, $\theta$ is the pitch angle, $\ell$ is the tether length, and $\phi$ is the payload swing angle measured from the vertical. Dots denote time derivatives.
+
+The system's physical parameters are the quadcopter mass $m_q$, payload mass $m_p$, pitch-axis inertia $I_q$, gravitational acceleration $g$, and rotor arm length $d$.
+
+\subsection{Equations of Motion}
+
+The translational dynamics of the quadcopter are given by
+\begin{equation}
+m_q
+\begin{bmatrix}
+\ddot{x}_q \\[2pt] \ddot{z}_q
+\end{bmatrix}
+=
+\bm{F}_{\text{thrust}}
++ Q\,\bm{u}(\phi)
+- m_q g
+\begin{bmatrix}
+0 \\ 1
+\end{bmatrix},
+\end{equation}
+where $\bm{F}_{\text{thrust}}$ is the total thrust force and $Q$ is the tether tension.
+
+The rotational dynamics about the pitch axis are
+\begin{equation}
+I_q\,\ddot{\theta} = \tau,
+\end{equation}
+with $\tau$ denoting the applied pitch torque.
+
+The payload dynamics satisfy
+\begin{equation}
+m_p\,\ddot{\bm{p}}_p =
+- m_p g
+\begin{bmatrix}
+0 \\ 1
+\end{bmatrix}
+- Q\,\bm{u}(\phi),
+\end{equation}
+where $\bm{p}_p$ is the payload position.
+
+Projecting the payload dynamics onto the tether frame yields the swing equation
+\begin{equation}
+\ell\,\ddot{\phi} + 2\,\dot{\ell}\,\dot{\phi}
+=
+- g\,\sin\phi
++
+\begin{bmatrix}
+\ddot{x}_q \\[2pt] \ddot{z}_q
+\end{bmatrix}
+\!\cdot \bm{t}(\phi),
+\end{equation}
+and the radial equation
+\begin{equation}
+m_p(\ddot{\ell} - \ell \dot{\phi}^2)
+=
+m_p g \cos\phi
+- Q
++
+m_p
+\begin{bmatrix}
+\ddot{x}_q \\[2pt] \ddot{z}_q
+\end{bmatrix}
+\!\cdot \bm{u}(\phi).
+\end{equation}
+
+Solving for the tether tension gives
+\begin{equation}
+Q =
+m_p\!\left[
+g \cos\phi
++
+\begin{bmatrix}
+\ddot{x}_q \\[2pt] \ddot{z}_q
+\end{bmatrix}
+\!\cdot \bm{u}(\phi)
+- (\ddot{\ell} - \ell \dot{\phi}^2)
+\right].
+\end{equation}
+
+The tether feed rate is controlled directly by the winch input,
+\begin{equation}
+\dot{\ell} = u_\ell.
+\end{equation}
+
+All geometric definitions and intermediate derivations are provided in Appendix~\ref{ap:tether_derivation}.
+
+% ---------------------
+
+% % \subsection{Summary and Assumptions}
+
+% We derive the dynamics of our system comprising a quadcopter drone and a tethered payload. To improve tractability of the verification task, we simplify the dynamics formulation by considering planar (2D) motion; a rigid, symmetric drone with mass concentrated at its centre of mass; a massless, inextensible tether between the drone and payload; pure axial thrust rotors; and no aerodynamic drag or external disturbances. 
+
+% % \begin{enumerate}
+% %     \item \textit{Planar motion:} Both drone and payload move only in the $x$--$z$ plane; there is no yaw or roll motion.
+% %     \item \textit{Rigid symmetric quadcopter:} The drone is a single rigid body with its mass concentrated at its centre of mass.
+% %     \item \textit{Massless, inextensible tether:} Always taut ($Q>0$) with no elasticity or mass. Tether length $\ell$ varies only via the commanded feed rate $u_\ell$.
+% %     \item \textit{Axial thrust:} Each rotor produces thrust only along its body axis (no drag or gyroscopic coupling). Thrust changes instantaneously.
+% %     \item \textit{No aerodynamic drag:} Air resistance on the quadcopter and payload is neglected.
+% %     \item \textit{No external disturbances:} Wind and other perturbations are ignored.
+% %     \item \textit{Quasi-static tether iteration:} The tether tension $Q$ depends on the drone acceleration terms, which itself depends on $Q$. 
+% %     Instead of solving implicitly, we iterate once or twice per timestep, which is assumed accurate for small timesteps (e.g., $dt < 0.05~\mathrm{s}$.)
+% % \end{enumerate}
+
+% \subsection{State and Controls}
+% The system state captures the planar motion of the quadcopter and the dynamics of the tethered payload. Specifically, it includes the lateral and vertical position of the quadcopter’s centre of mass, its pitch angle, and the corresponding time derivatives. In addition, the state incorporates the tether length, the payload swing angle relative to the vertical, and the rates of change of these quantities. The control input consists of the individual thrust forces applied by the four rotors and the commanded tether feed rate.
+% \[
+% \bm{s} =
+% \begin{bmatrix}
+% x_q & z_q & \theta & \dot{x}_q & \dot{z}_q & \dot{\theta} & \ell & \phi & \dot{\ell} & \dot{\phi}
+% \end{bmatrix}^{\!\top},
+% \quad
+% \bm{u} =
+% \begin{bmatrix}
+% T_1 & T_2 & T_3 & T_4 & u_\ell
+% \end{bmatrix}^{\!\top}
+% \]
+
+% where \(x_q, z_q\) are the quadcopter centre of mass (COM) coordinates, \(\theta\) is the pitch angle, 
+% \(\ell\) is the rope length, and \(\phi\) is the rope swing angle from vertical.
+% Dots denote time derivatives.
+
+% % \subsection{Parameters}
+% The parameters of the system are the mass of the quadcopter and payload, \(m_q, m_p\), the pitch-axis inertia, \(I_q\), gravitational acceleration, \(g\), and the rotor arm length  (distance from COM to rotor thrust line), \(d\).
+
+% \subsection{Tether Geometry and Kinematics}
+
+% We consider planar motion of a quadcopter with a payload suspended beneath it by a massless, inextensible tether of variable length $\ell$. The configuration of the tether is parameterised by the swing angle $\phi$, measured from the vertical. To describe the payload motion conveniently, we define unit vectors aligned with and perpendicular to the tether as
+% \[
+% \bm{u}(\phi) =
+% \begin{bmatrix}
+% \sin\phi \\[2pt] -\cos\phi
+% \end{bmatrix},
+% \qquad
+% \bm{t}(\phi) =
+% \begin{bmatrix}
+% \cos\phi \\[2pt] \sin\phi
+% \end{bmatrix},
+% \]
+% where $\bm{u}$ points from the quadcopter toward the payload and $\bm{t}$ is tangential to the payload swing, orthogonal to $\bm{u}$.
+
+% The payload position $\bm{p}_p$ is expressed relative to the quadcopter centre of mass $(x_q,z_q)$ as
+
+% \begin{equation}
+%     \bm{p}_p =
+%     \begin{bmatrix}
+%     x_q \\ z_q
+%     \end{bmatrix}
+%     + \ell\,\bm{u}(\phi).  
+% \end{equation}
+
+
+% Differentiating twice yields the payload acceleration
+% \begin{equation}
+%     \ddot{\bm{p}}_p =
+%     \begin{bmatrix}
+%     \ddot{x}_q \\[2pt] \ddot{z}_q
+%     \end{bmatrix}
+%     + (\ddot{\ell} - \ell \dot{\phi}^{2})\, \bm{u}
+%     + (2\dot{\ell}\dot{\phi} + \ell \ddot{\phi})\, \bm{t},
+% \end{equation}
+
+% which explicitly captures the coupling between quadcopter motion, tether length variation, and payload swing.
+
+% \subsection{Forces and Equations of Motion}
+
+% The drone is subject to the total thrust force $\bm{F}_{\text{thrust}}$, gravitational force $m_q g$, and the tether tension $Q\,\bm{u}$. The payload experiences gravitational force and an equal and opposite tether force, consistent with Newton’s third law. A free-body diagram is shown in Appendix~\ref{ap:fbd}.
+
+% Applying Newton’s second law, the translational dynamics of the quadcopter are given by
+
+% \begin{equation}
+%     m_q
+%     \begin{bmatrix}
+%     \ddot{x}_q \\[2pt] \ddot{z}_q
+%     \end{bmatrix}
+%     =
+%     \bm{F}_{\text{thrust}}
+%     + Q\,\bm{u}
+%     - m_q g
+%     \begin{bmatrix}
+%     0 \\ 1
+%     \end{bmatrix},
+% \end{equation}
+
+% where the sign convention of the tether force is embedded in the definition of $\bm{u}$. The rotational dynamics about the pitch axis are
+
+% \begin{equation}
+%     I_q\,\ddot{\theta} = \tau,
+% \end{equation}
+
+% with $I_q$ the quadcopter pitch inertia and $\tau$ the applied torque.
+
+% The translational dynamics of the payload follow as
+
+% \begin{equation}
+%     m_p\,\ddot{\bm{p}}_p =
+%     - m_p g
+%     \begin{bmatrix}
+%     0 \\ 1
+%     \end{bmatrix}
+%     - Q\,\bm{u}.
+% \label{eq:payload_dyn}
+% \end{equation}
+
+% % \subsection{Payload Dynamics in Tether Coordinates}
+% \subsection{Payload Dynamics in Tether Coordinates and Winch Model}
+
+% To obtain equations governing the swing and tension dynamics, Eq.~\ref{eq:payload_dyn} is projected onto the tangential and radial directions defined by $\bm{t}(\phi)$ and $\bm{u}(\phi)$.
+
+% Projection onto the tangential direction yields the swing equation
+
+% \begin{equation}
+%     \ell\,\ddot{\phi} + 2\,\dot{\ell}\,\dot{\phi}
+%     =
+%     - g\,\sin\phi
+%     +
+%     \begin{bmatrix}
+%     \ddot{x}_q \\[2pt] \ddot{z}_q
+%     \end{bmatrix}
+%     \!\cdot\bm{t}(\phi),
+% \end{equation}
+
+% which shows how payload oscillations are driven both by gravity and by quadcopter accelerations.
+
+% Projection onto the radial direction gives
+% \begin{equation}
+%     m_p(\ddot{\ell} - \ell \dot{\phi}^2)
+%     =
+%     m_p g \cos\phi
+%     - Q
+%     +
+%     m_p
+%     \begin{bmatrix}
+%     \ddot{x}_q \\[2pt] \ddot{z}_q
+%     \end{bmatrix}
+%     \!\cdot\bm{u}(\phi),
+% \end{equation}
+
+% from which the tether tension can be expressed as
+% \begin{equation}
+%     Q =
+%     m_p\!\left[
+%     g \cos\phi
+%     +
+%     \begin{bmatrix}
+%     \ddot{x}_q \\[2pt] \ddot{z}_q
+%     \end{bmatrix}
+%     \!\cdot\bm{u}(\phi)
+%     - (\ddot{\ell} - \ell \dot{\phi}^2)
+%     \right].      
+% \end{equation}
+
+% % \subsection{Winch Model}
+
+% The tether length $\ell$ is controlled via a motorised winch. Two models are considered. In the simplest case, the tether feed rate is assumed to track the control input directly: $\dot{\ell} = u_\ell$.
+% % \begin{equation}
+% %     \dot{\ell} = u_\ell.   
+% % \end{equation}

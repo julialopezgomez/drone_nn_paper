@@ -1,0 +1,43 @@
+% This subsection evaluates the robustness of the neural network controller to bounded input perturbations using adversarial attack methods. While these experiments do not provide formal guarantees, they offer practical insight into the controller’s sensitivity to noise and disturbances, and complement the formal verification results presented above.
+
+Under PGD, MSE increases with $\varepsilon$ for both models, but the normally trained model degrades much faster; the adversarially trained model is more stable, giving a $\sim$3--4$\times$ improvement in worst-case robustness across the tested budgets (Figure~\ref{fig:robustness_curve_pgd}). The feature-level view at $\varepsilon=0.1$ shows that relatively small, structured perturbations distributed across state features can nevertheless drive a large loss increase (Figure~\ref{fig:feature_perturbations}). A complementary 2D slice of the local MSE surface around a clean input $x_0$ further confirms the projected gradient-ascent interpretation: the adversarial point remains within the norm ball while moving along a direction of increased loss (Figure~\ref{fig:loss_landscape}).
+
+
+\begin{figure}[h]
+    \centering
+
+    % Row 1: full-width feature perturbations
+    \begin{subfigure}[t]{\linewidth}
+        \centering
+        \includegraphics[width=0.7\linewidth]{figs/feature_perturbations_pgd_eps_0.1.png}
+        \caption{Feature perturbations under PGD ($\varepsilon=0.1$). Clean (solid) vs.\ adversarial (dashed) for a representative sample.}
+        \label{fig:feature_perturbations}
+    \end{subfigure}
+
+    \vspace{0.6em}
+
+    % Row 2: two side-by-side plots
+    \begin{subfigure}[t]{0.49\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figs/robustness_under_pgd_attack.png}
+        \caption{Robustness under PGD attack: adversarial MSE vs.\ $\varepsilon$.}
+        \label{fig:robustness_curve_pgd}
+    \end{subfigure}\hfill
+    \begin{subfigure}[t]{0.49\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figs/local_loss_landscape_pgd.png}
+        \caption{Local loss landscape (PGD slice) around $x_0$.}
+        \label{fig:loss_landscape}
+    \end{subfigure}
+
+    \caption{\textbf{PGD robustness and behavior.} Top: per-feature perturbations at $\varepsilon=0.1$. Bottom-left: robustness curve across $\varepsilon$. Bottom-right: local loss landscape illustrating the PGD-maximised direction within the feasible region.}
+    \label{fig:pgd_results}
+\end{figure}
+
+\paragraph{Lipschitz Robustness Analysis.}
+To further assess the robustness of the learned controller, we analyse its Lipschitz behaviour by estimating the sensitivity of the network outputs to perturbations in the input state, approximating local Lipschitz constants using Jacobian-based norms. The adversarially trained controller exhibits consistently lower Lipschitz values, compared to the baseline. This indicates smoother input--output mappings. These estimates complement adversarial robustness and verification results by providing an interpretable indicator of stability.
+
+
+\subsubsection{Limitations \& Future Work}
+These results provide \emph{empirical} robustness evidence for the chosen threat model (norm-bounded perturbations) and attack settings, but they are not a formal robustness guarantee or necessarily reflect realistic noise. Future work can strengthen this analysis with more diverse attacks, including multi-start or momentum PGD, and with domain-consistent perturbations that better match real sensor or estimation errors.
+

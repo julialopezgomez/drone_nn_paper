@@ -1,0 +1,24 @@
+
+This section evaluates the safety and robustness of the learned neural network controller, discussing the implementation and analysis of three complementary verification methods: (i) formal controller-level verification in isolation, (ii) system-level reachability analysis of the closed-loop dynamics, and (iii) empirical robustness analysis of the neural network under bounded input perturbations.
+
+Together, these methods provide insight into which safety-relevant properties can be formally guaranteed, which can only be assessed empirically, and where current verification tools encounter scalability limitations. 
+
+% Training techniques such as adversarial training and property-driven training, introduced in the previous section, are evaluated here in terms of their impact on verifiability and robustness, rather than being treated as verification methods themselves.
+
+\subsection{Controller-Level Property Verification (\vehicle\ + \marabou)}
+\label{sec:controller_verification}
+\input{sections/verification/vehicle}
+
+
+
+\subsection{Closed-Loop Reachability Analysis (CORA)}
+\label{sec:cora}ß
+\input{sections/verification/cora}
+
+
+
+\subsection{Empirical Robustness Analysis under Adversarial Perturbations}
+\label{sec:empirical_robustness}
+\input{sections/verification/adv_training}
+\input{sections/verification/visualisation}
+

@@ -1,0 +1,15 @@
+\subsection{Neural Network Control}
+We adopt a standard closed-loop negative feedback controller as in \cite{kessler_neural_2025}. At each control step, the controller receives information about the current state, and computes actuator commands that act to control the system through its dynamics. In this regard, the controller can be seen as a mapping from system states to control inputs, which determines the closed-loop behaviour over time. 
+
+While controllers typically use control laws derived from theory, using analytical models of the dynamics, neural network controllers offer an alternative for when accurate system modelling is challenging, when data-driven methods are preferable, or when adaptation to new operating conditions is required. 
+
+\subsection{Verification Tools}
+
+This case study relies on three complementary classes of neural network verification and robustness techniques.
+
+Firstly, we verify properties of the neural network controller in isolation, independent of the system dynamics. This class of analysis focuses on infinite time-horizon properties of the controller itself, such as bounded control outputs and robustness to bounded input perturbations. We perform controller-level verification using the \marabou\ SMT-based neural network verifier, accessed through the \vehicle\ specification language. \vehicle\ provides a higher-level interface for expressing verification properties in physically meaningful units, thereby helping bridge the embedding gap between the physical domain and the vectorised representations required by neural network verifiers.
+
+Secondly, we analyse the closed-loop behaviour of the neural network controller together with the non-linear system dynamics using finite time-horizon reachability analysis. .This class of verification determines whether all trajectories originating from a specified initial set avoid unsafe regions over a bounded time interval. For this we use CORA , a framework implemented in MATLAB, which supports non-linear continuous-time dynamics and neural network controllers. This enables system-level safety analysis that cannot be addressed by controller-level verification alone.
+
+Finally, we incorporate robustness-oriented training techniques from the machine learning literature to improve both empirical performance and verifiability. In particular, we apply projected gradient descent (PGD)–based adversarial training to the neural network controller and compare a baseline model against an adversarially trained variant. The two controllers are evaluated with respect to performance under adversarial perturbations as well as their ability to satisfy formal verification properties. In addition, we explore property-driven training approaches that directly optimise the neural network to satisfy standard robustness specifications, enabling a direct comparison of verification outcomes before and after robustness-oriented training.
+

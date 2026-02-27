@@ -1,0 +1,192 @@
+% This is samplepaper.tex, a sample chapter demonstrating the
+% LLNCS macro package for Springer Computer Science proceedings;
+% Version 2.21 of 2022/01/12
+%
+\documentclass[runningheads]{llncs}
+%
+\usepackage[T1]{fontenc}
+% T1 fonts will be used to generate the final print and online PDFs,
+% so please use T1 fonts in your manuscript whenever possible.
+% Other font encondings may result in incorrect characters.
+%
+\usepackage{graphicx}
+% Used for displaying a sample figure. If possible, figure files should
+% be included in EPS format.
+%
+% If you use the hyperref package, please uncomment the following two lines
+% to display URLs in blue roman font according to Springer's eBook style:
+%\usepackage{color}
+%\renewcommand\UrlFont{\color{blue}\rmfamily}
+%\urlstyle{rm}
+%
+\usepackage{amsmath}
+\usepackage{bbm}
+\usepackage{bm}
+\usepackage{siunitx}
+\usepackage{tikz}
+ \usepackage{amssymb}
+\usetikzlibrary{arrows.meta,calc,angles,quotes,positioning}
+\usepackage{subcaption}
+\usepackage{pdflscape}
+\usepackage{hyperref}
+% \usepackage{color}
+% \usepackage{listings}
+%     \lstdefinelanguage{Matlab}{
+%       keywords={break,case,catch,continue,else,elseif,end,for,function,
+%         global,if,otherwise,persistent,return,switch,try,while},
+%       keywordstyle=\color{blue}\bfseries,
+%       commentstyle=\color{gray}\ttfamily,
+%       stringstyle=\color{red},
+%     }
+    
+%     \lstdefinestyle{matlab}{
+%       language=Matlab,
+%       basicstyle=\ttfamily\small,
+%       numbers=left,
+%       numberstyle=\tiny\color{gray},
+%       stepnumber=1,
+%       numbersep=6pt,
+%       showstringspaces=false,
+%       breaklines=true,
+%       frame=single,
+%       tabsize=2,
+%       captionpos=b
+%     }
+%     % \lstset{style=matlab}
+\usepackage{listings}
+\usepackage{xcolor}
+\definecolor{mygreen}{RGB}{28,172,0} % color values Red, Green, Blue
+\definecolor{mylilac}{RGB}{170,55,241}
+\lstset{
+  language=Matlab,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue}\bfseries,
+  commentstyle=\color{mygreen}\ttfamily,
+  stringstyle=\color{mylilac},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=6pt,
+  showstringspaces=false,
+  breaklines=true,
+  frame=single,
+  tabsize=2,
+  captionpos=b
+}
+
+\newcommand{\vehicle}{\textsc{Vehicle}}
+\newcommand{\marabou}{\textsc{Marabou}}
+
+
+\begin{document}
+%
+\title{Safety Evaluation of Neural Network Control for Drone Delivery Systems}
+%
+%\titlerunning{Abbreviated paper title}
+% If the paper title is too long for the running head, you can set
+% an abbreviated paper title here
+%
+
+%ORCID IDs if we want to include them later
+% Calum \orcidID{0009-0004-1234-2494}
+% Julia \orcidID{}
+% Ruchira \orcidID{}
+
+\author{
+Calum Arnott\thanks{Equal contribution}\inst{1,2}
+\and
+Julia López Gómez\protect\footnotemark[1]\inst{1,2}
+\and
+Ruchira Ray\protect\footnotemark[1]\inst{1,2}
+}
+
+%
+\authorrunning{C. Arnott et al.}
+% First names are abbreviated in the running head.
+% If there are more than two authors, 'et al.' is used.
+%
+\institute{
+University of Edinburgh, UK \\ \email{\{C.R.Arnott,J.Lopez-Gomez,R.Ray-3\}@sms.ed.ac.uk} 
+\and 
+Heriot-Watt University, UK \\ \email{\{cra4000,jl4065,rr4033\}@hw.ac.uk}
+}
+%
+\maketitle              % typeset the header of the contribution
+%
+
+\begin{abstract}
+% The abstract should briefly summarize the contents of the paper in
+% 150--250 words.
+Neural network controllers are increasingly used in safety-critical cyber-physical systems due to their ability to approximate complex non-linear control policies. However, providing guarantees about their behaviour remains challenging, particularly when such controllers are deployed in closed loop with non-linear dynamics. This paper presents a case study on the robustness and verification of a neural network controller for a quadrotor drone performing winch-based payload delivery with a tethered load. An expert PID controller is first designed to stabilise the coupled drone-payload system in desired setpoints and is used to generate training data. A NN controller is then trained to approximate the expert policy, and adversarial training and property-driven training are incorporated to improve robustness and bias the controller toward safe behaviour and property compliance. The learned controllers are evaluated using three complementary verification techniques. First, controller-level formal property verification is performed using the \vehicle\ specification language and the \marabou\ solver to assess properties such as bounded actuation or correct control direction. Second, finite-time reachability analysis of the closed-loop system is conducted using CORA, revealing scalability limitations due to non-linear dynamics and dimensionality. Third, empirical robustness is evaluated under adversarial input perturbations, complemented by explainability analysis using LIME and Integrated Gradients to assess feature sensitivity and stability. This case study highlights the interaction between training strategies and verifiability, and showcases current challenges in verifying NN controllers for aerial robotics applications.
+\end{abstract}
+
+
+
+\keywords{Neural Network Control \and Uncrewed Aerial Vehicle \and Verification of Cyber-Physical Systems \and Machine Learning.}
+
+% \subsection*{Author Contributions}
+
+% \paragraph{Calum Arnott}
+% developed the continuous-time dynamics model of the tethered drone–payload system, including the underlying physical assumptions and equations of motion. He designed and implemented the baseline PID controller and simulator used for closed-loop control and data generation. Calum also specified and evaluated selected verification properties, and carried out all reachability analysis using CORA, including both open-loop and closed-loop reachability experiments and associated analysis of set explosion and numerical limitations.
+
+% \paragraph{Julia López Gómez}
+% designed and implemented the full neural network control pipeline, including dataset generation, network architecture design, training, validation, and closed-loop integration with the system dynamics and simulations. She specified and implemented the verification properties in Vehicle, including robustness properties such as Lipschitz. Julia developed learning objectives to integrate these properties into NN verification through property-driven training. 
+
+% \paragraph{Ruchira Ray}
+% implemented adversarial attacks and adversarial training methods for the neural network controller, including PGD-based perturbations used to model sensor noise and external disturbances. She conducted robustness experiments under adversarial perturbations and contributed to the analysis of robustness improvements resulting from adversarial training, as well as the associated evaluation plots and comparisons.
+
+
+% \subsection*{Author Contributions}
+
+% \paragraph{Calum Arnott}
+% System dynamics; PID controller design; simulator implementation; data generation support; controller-level property specification; open- and closed-loop reachability analysis using CORA; analysis of set explosion and numerical limitations.
+
+% \paragraph{Julia López Gómez}
+% Neural network control pipeline design and implementation; dataset generation; closed-loop integration with simulations; controller-level property specification in Vehicle; robustness and Lipschitz-related properties; property-driven training loss formulation and integration.
+
+% \paragraph{Ruchira Ray}
+% PGD/FGSM attack and adversarial training implementation for robustness; LIME explainability; Integrated Gradients explainability; empirical robustness evaluation under bounded perturbations and result visualisation.
+
+
+%
+%
+%
+\section{Introduction}
+\label{sec:introduction}
+\input{sections/introduction}
+
+
+% \section{Background}
+% \label{sec:background}
+% \input{sections/background}
+
+
+\section{Modelling}
+\label{sec:modelling}
+\input{sections/modelling.tex}
+
+\section{Implementation}
+\label{sec:implementation}
+\input{sections/implementation}
+
+\section{System Verification and Robustness Analysis}
+\label{sec:verification}
+\input{sections/verification/verification}
+
+\section{Explainable AI}
+\label{sec:xai}
+\input{sections/xai}
+
+\section{Discussion and Conclusions}
+\label{sec:discussion}
+\input{sections/discussion}
+
+
+%Bib
+\bibliographystyle{splncs04}
+\bibliography{references}
+
+\newpage
+\section{Appendix}
+\input{sections/appendix/appendix}
+
+\end{document}

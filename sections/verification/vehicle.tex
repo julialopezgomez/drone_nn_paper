@@ -1,0 +1,90 @@
+This subsection focuses on formal verification of the neural network controller in isolation, independent of the underlying system dynamics. The goal is to assess whether the learned controller satisfies high-level, safety-relevant properties over bounded input domains. Properties are specified using the \vehicle\ specification language and verified using the \marabou\ neural network verifier.
+
+\subsubsection{Verification Scope and Assumptions}
+
+We consider the neural network controller as a static function $f_\theta : (\bm{s}, \bm{e}) \mapsto \bm{u}$, mapping system states and tracking errors to control outputs. Verification is performed over bounded regions of the input space corresponding to physically valid states. This controller-level analysis provides formal guarantees about instantaneous control outputs, which are necessary but not sufficient for overall system safety.
+
+\subsubsection{Safety and Behavioural Properties}
+\label{sec:vehicle-properties}
+
+Based on physical actuator limits and desired control behaviour, we define the following properties.
+
+\paragraph{Property P1: Global Saturation Safety.}
+For all valid inputs, each control output must remain within the physical actuator limits, ensuring that the controller never commands infeasible actuator values:
+\[
+\forall (\bm{s}, \bm{e}) \in \mathcal{X}, \quad
+u_i^{\min} \leq f_\theta(\bm{s}, \bm{e})_i \leq u_i^{\max}, \quad \forall i.
+\]
+
+\paragraph{Property P1.2: Saturation Safety with Margin.}
+A relaxed variant of Property~P1 introduces a margin factor $m > 0$, allowing small deviations over actuator limits:
+\[
+\forall (\bm{s}, \bm{e}) \in \mathcal{X}, \quad
+u_i^{\min} - m \leq f_\theta(\bm{s}, \bm{e})_i \leq u_i^{\max} + m, \quad \forall i.
+\]
+
+\paragraph{Property P2: Correct Control Direction at Extremes}
+When selected state variables (e.g.\ position or payload swing) are far from their reference values, the controller must apply corrective actions in the appropriate direction. For example, for pendulum swing angle error $e_\phi$:
+\[
+e_\phi > \epsilon \;\Rightarrow\; f_\theta(\bm{s}, \bm{e})_{u_\phi} < 0,
+\quad
+e_\phi < -\epsilon \;\Rightarrow\; f_\theta(\bm{s}, \bm{e})_{u_\phi} > 0,
+\]
+where $\epsilon > 0$ is a threshold defining "far" from the reference. Similar conditions apply for other critical state variables. This property encodes basic physical intuition about stabilising behaviour.
+
+\paragraph{Property P3: Quiet Control Near Equilibrium}
+Near equilibrium, where tracking errors and velocities are close to zero, the controller should apply minimal control:
+\[
+\|\bm{e}\|_\infty \leq \varepsilon
+\;\Rightarrow\;
+\|f_\theta(\bm{s}, \bm{e})\|_\infty \leq u^{\text{quiet}},
+\]
+for small thresholds $\varepsilon, u^{\text{quiet}} > 0$.
+This property discourages oscillatory or unnecessarily aggressive control near the desired operating point.
+
+\subsubsection{Formal Verification with \vehicle\ and \marabou}
+
+Each property is encoded in the \vehicle\ specification language using bounded quantification over the input space. The resulting constraints are passed to the \marabou\ verifier, which symbolically analyses the neural network to determine whether the properties hold for all inputs in the specified domain. We provide a full \vehicle\ specification of the above properties in Appendix~\ref{app:vehicle-spec}.
+
+Verification outcomes are reported as either \emph{verified/SAT} (property holds for all inputs in the specified domain) or \emph{violated/UNSAT} (a counterexample is found). Due to network size and input dimensionality, not all properties are verifiable for all models, highlighting scalability limitations of current neural network verification tools.
+
+\subsubsection{Property-Driven Training}
+
+To improve satisfaction of the above properties, selected specifications are incorporated into the training process via property-driven training (PDT). Each property is transformed into a differentiable penalty term that augments the standard imitation loss. We showcase an example.
+
+Let $\mathcal{L}_{\text{MSE}}$ denote the regression loss used in our system. The total training objective becomes:
+\[
+\mathcal{L} =
+\mathcal{L}_{\text{MSE}}
++ \lambda_1 \mathcal{L}_{\text{sat}}
++ \lambda_3 \mathcal{L}_{\text{quiet}},
+\]
+where $\lambda_i$ are weighting coefficients.
+
+\paragraph{Saturation Penalty.}
+Violations of actuator limits are penalised using ReLU:
+\[
+\mathcal{L}_{\text{sat}} =
+\sum_i \max(0, f_\theta(\bm{s}, \bm{e})_i - u_i^{\max})^2
++ \max(0, u_i^{\min} - f_\theta(\bm{s}, \bm{e})_i)^2.
+\]
+
+\paragraph{Quiet Control Penalty.}
+Near-equilibrium behaviour is encouraged by penalising control effort when errors are small:
+
+\[
+\mathcal{L}_{\text{quiet}} =
+\mathbbm{1}_{\|\bm{e}\|_\infty \leq \varepsilon}
+\;\|f_\theta(\bm{s}, \bm{e})\|_2^2.
+\]
+
+These penalties act as soft constraints during training, biasing the learned controller toward satisfying the specified properties.
+
+
+\subsubsection{Verification Results and Limitations}
+
+Due to the size of the training dataset, the dimensionality of the input space, and limited computing resources, full controller-level verification of our tethered drone NN controller was not tractable using \vehicle\ and \marabou. To validate the effectiveness of the proposed property-driven training approach, we evaluated it on a simpler pendulum control benchmark commonly used in neural network verification studies.
+
+Results indicate that property-driven training improves satisfaction of the specified safety properties. In particular, after applying PDT, properties 1.2 and 3 were successfully verified, compared to only property 3 being verified in the baseline model. Furthermore, the number of counterexamples found for violated properties in a sample dataset decreased significantly, demonstrating enhanced controller behaviour in critical scenarios. 
+
+While these findings show the effectiveness of PDT in enhancing verifiability, they also highlight the challenges of scaling neural network verification to higher-dimensional, real-world control problems. This motivates future research into more efficient verification methods tailored to complex control systems.

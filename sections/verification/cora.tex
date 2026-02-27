@@ -1,0 +1,98 @@
+This subsection analyses the closed-loop behaviour of the drone-payload system using finite time-horizon reachability analysis. The CORA tool is used, implemented in MATLAB, to compute over-approximations of the reachable state sets for the non-linear system dynamics. The analysis is performed to assess whether all trajectories originating from a bounded initial set satisfy specified safety and goal conditions over a finite horizon.
+
+\subsubsection{Verification Scope and Assumptions}
+The verification task is formulated by defining (i) an initial set, representing uncertainty in the initial conditions; (ii) a safe set, describing admissible regions of the state space; and (iii) an unsafe set, which must be avoided for the duration of the reachability horizon.
+
+While the safe behaviour of aerial delivery systems may be more naturally expressed as bounded deviation from a reference trajectory, as in the gliding drone case study of Kessler et al.~\cite{kessler_neural_2025}, our system involves a higher-dimensional state space and strongly coupled non-linear dynamics. As a result, we restrict the specification to state-space safety and avoidance properties that are tractable within CORA, and defer trajectory-based specifications to future work.
+
+\subsubsection{State-Space Dynamics}
+
+The continuous-time dynamics derived in Section~\ref{sec:modelling} are reformulated in state-space form for use with CORA’s non-linear reachability solvers. The system is expressed as
+\[
+\dot{\bm{x}} = f(\bm{x}, \bm{u}),
+\]
+where $\bm{x}$ comprises the drone and payload states, and $\bm{u}$ represents either bounded control inputs (open-loop analysis) or feedback control laws (closed-loop analysis). 
+% The implementation of the dynamics in MATLAB is given in Appendix~\ref{app:cora}.
+
+\subsubsection{Reachability Specification}
+
+Reachability is evaluated over a finite time horizon of $T_f = 4~\mathrm{s}$ using CORA’s non-linear reachability analysis. The specification requires all trajectories starting from a bounded initial set to avoid unsafe states for the entire horizon and satisfy a goal (safe) condition during the final second. Appendix~\ref{app:cora} provides a representative code snippet showing how initial sets, safety and avoidance properties, and time-bounded reachability specifications are encoded and verified in CORA for the closed-loop system.
+
+
+\paragraph{Initial Set}
+The nominal initial condition corresponds to a hovering quadcopter at $z_q = 5~\mathrm{m}$ with zero velocities, zero payload swing, and a tether length of $\ell = 1~\mathrm{m}$. Bounded uncertainty is modelled by an interval of radius $0.01$ applied uniformly to all 13 state dimensions (10 plant states and 3 PID integral states), yielding the initial set $\mathcal{X}_0$.
+
+\paragraph{Goal (Safe) Set}
+The goal set constrains the quadcopter centre-of-mass altitude to remain within a prescribed flight corridor during the final second of the horizon. Specifically,
+\[
+z_q \in [2,\;10],
+\]
+while the lateral position $x_q$ and all remaining state variables are left unconstrained. This specification reflects a simplified altitude safety envelope consistent with operational flight constraints.
+
+\paragraph{Unsafe Set}
+The unsafe set represents a near-ground crash region. Entry into this set is defined by
+\[
+z_q \in [0,\;1],
+\]
+with all other state dimensions unconstrained. The size of this buffer accounts for the presence of the tethered payload, ensuring that potential payload-ground contact is captured even when the quadcopter itself remains airborne.
+
+\paragraph{Control Inputs}
+Closed-loop reachability is performed with no external inputs, as all control actions are generated internally by the embedded PID controller. Accordingly, the input set is defined as $\mathcal{U} = \{0\}$.
+
+% \subsubsection{Reachability Results}
+
+% We first consider open-loop reachability with bounded control inputs, where the system is propagated without feedback control and inputs are constrained to lie within a predefined interval. As expected, the reachable sets rapidly expand and the system fails to satisfy the goal specification, illustrating the necessity of closed-loop control. The resulting reachable sets are shown in Fig.~\ref{fig:cora_open_loop}.
+
+% % \begin{figure}
+% %     \centering
+% %     \begin{subfigure}[b]{0.48\linewidth}
+% %         \centering
+% %         \includegraphics[width=\linewidth]{figs/open_loop_reach.png}
+% %         \caption{Open-loop reachability with bounded control inputs}
+% %         \label{fig:cora_open_loop}
+% %     \end{subfigure}
+% %     \hfill
+% %     \begin{subfigure}[b]{0.48\linewidth}
+% %         \centering
+% %         \includegraphics[width=\linewidth]{figs/closed_loop_reach_pid.png}
+% %         \caption{Closed-loop reachability with PID control}
+% %         \label{fig:cora_pid}
+% %     \end{subfigure}
+% %     \caption{Comparison of open-loop and closed-loop reachability results computed using CORA.}
+% %     \label{fig:cora_reachability_comparison}
+% % \end{figure}
+
+
+% % \begin{figure}[h]
+% %     \centering
+% %     \includegraphics[width=0.8\linewidth]{figs/open_loop_reach.png}
+% %     \caption{Open-loop reachability with bounded control inputs}
+% %     \label{fig:cora_open_loop}
+% % \end{figure}
+
+%  \begin{figure}[h]
+%     \centering
+%     \includegraphics[width=0.8\linewidth]{figs/closed_loop_reach_pid_relax.png}
+%     \caption{Closed-loop reachability with PID control}
+%     \label{fig:cora_pid}
+% \end{figure}
+
+% We then perform closed-loop reachability analysis with the expert PID controller. Since CORA does not provide a native PID controller abstraction, the PID control law is embedded directly into the system dynamics. In particular, the integral terms of the PID controllers are modelled as additional state variables with their own differential equations, increasing the total system dimension from 10 plant states to 13 states. This constitutes a non-trivial extension of the standard CORA modelling workflow and represents a novel aspect of this case study.
+% Fig.~\ref{fig:cora_pid} shows the reachable sets for the closed-loop system under PID control. The specification is successfully verified up to approximately 0.12~s, after which set explosion prevents further propagation. By reducing the integration step size and tightening the input and initial sets, verification can be extended to approximately 0.39~s; however, exponential growth in the reachable set ultimately limits the horizon.
+
+\subsubsection{Reachability Results}
+
+We perform closed-loop reachability analysis of the drone–payload system under the expert PID controller using CORA. Since CORA does not provide a native class for PID control, the control law is embedded directly into the system dynamics. In particular, the integral terms of the PID controllers are modelled as additional state variables with their own differential equations, increasing the system dimension from 10 plant states to 13 states. This explicit embedding of a cascaded PID controller into CORA constitutes a non-trivial extension of the standard modelling workflow and represents a novel aspect of this case study.
+
+Fig.~\ref{fig:cora_pid} shows the reachable sets of the closed-loop system projected onto the quadcopter position subspace. For the given initial set and specification, the safety properties are verified for a short initial time interval. In practice, reachability propagation can be carried out successfully up to approximately $0.39~\mathrm{s}$, after which set explosion prevents further computation, thereby limiting the achievable time horizon for closed-loop verification.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.8\linewidth]{figs/closed_loop_reach_pid_relax.png}
+    \caption{Closed-loop reachability with PID control.}
+    \label{fig:cora_pid}
+\end{figure}
+
+\subsubsection{Discussion and Limitations}
+
+Closed-loop reachability analysis with a neural network controller has not yet been implemented in CORA for this system. While conceptually straightforward—replacing the PID control law with a neural network evaluation—the primary focus of this work was to characterise the onset of set explosion for the coupled drone--payload dynamics before introducing additional non-linearities from the neural network. The PID-based analysis already demonstrates severe scalability limitations, suggesting that further model simplifications or alternative reachability representations would be required for neural network closed-loop verification. These preliminary results in CORA highlight the challenges of system-level verification of closed-loop control with complex multi-body dynamics, and motivate the complementary use of controller-level verification and robustness analysis also presented in this case study.

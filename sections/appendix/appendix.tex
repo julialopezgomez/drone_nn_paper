@@ -1,0 +1,332 @@
+\subsection{Numerical Simulation Framework}
+\label{ap:num_sim_framework}
+
+The system of equations derived in Section~\ref{sec:modelling} describes a coupled set of nonlinear, second-order differential equations governing the motion of the quadcopter drone and tethered payload. Closed-form solutions are not available; therefore, the dynamics are integrated numerically over discrete timesteps using a fourth-order Runge--Kutta (RK4) scheme with timestep $\Delta t$.
+
+At each simulation timestep, the following operations are performed:
+\begin{enumerate}
+    \item Evaluate the current state vector $\bm{s}(t)$.
+    \item Compute the state derivatives from the continuous-time dynamics:
+    \[
+    \dot{\bm{s}} = f(\bm{s}, \bm{u}, \bm{p}),
+    \]
+    where $\bm{u}$ denotes the control inputs and $\bm{p}$ represents the physical parameters loaded from a configuration file (\texttt{config.yaml}).
+    \item Advance the state using RK4 integration:
+    \[
+    \bm{s}(t+\Delta t) = \bm{s}(t) + \frac{1}{6}(k_1 + 2k_2 + 2k_3 + k_4),
+    \]
+    with
+    \[
+    \begin{aligned}
+    k_1 &= f(\bm{s}_t), \\
+    k_2 &= f(\bm{s}_t + \tfrac{1}{2}\Delta t k_1), \\
+    k_3 &= f(\bm{s}_t + \tfrac{1}{2}\Delta t k_2), \\
+    k_4 &= f(\bm{s}_t + \Delta t k_3).
+    \end{aligned}
+    \]
+    \item Resolve the algebraic coupling between tether tension $Q$ and quadcopter acceleration using a quasi-static fixed-point iteration:
+    \[
+    Q^{(i+1)} = m_p \Big( g \cos\phi + \bm{a}_q \cdot \bm{u} - (\ddot{\ell} - \ell \dot{\phi}^2) \Big),
+    \]
+    where $\bm{a}_q = (\ddot{x}_q, \ddot{z}_q)^\top$. For $\Delta t < 0.05~\mathrm{s}$, convergence is typically achieved within one or two iterations.
+\end{enumerate}
+
+The simulation is implemented in a modular Python framework:
+\begin{itemize}
+    \item \texttt{dynamics.py}: continuous-time dynamics and force computations,
+    \item \texttt{simulation.py}: RK4 integration loop and data logging,
+    \item \texttt{pid\_control.py}: expert PID controller implementation.
+\end{itemize}
+
+This simulation environment serves both as a validation tool for the expert controller and as the data-generation engine for training the neural network.
+
+\subsection{Free-Body Diagram}
+\label{ap:fbd}
+Fig.~\ref{fig:fbd} illustrates the free-body diagram of the quadcopter and the payload. 
+
+\begin{figure}[h!]
+    \centering
+    \begin{tikzpicture}[scale=1.1,
+        force/.style={-Latex,very thick},
+        axis/.style={-Latex,thick,gray!70},
+        rope/.style={line width=1pt},
+        note/.style={font=\small}
+    ]
+    
+    % --- World axes ---
+    \draw[axis] (0,0) -- (4,0) node[below] {$x$};
+    \draw[axis] (0,0) -- (0,3) node[left] {$z$};
+    
+    % --- Quad position and geometry ---
+    \coordinate (Q) at (1.8,1.8);
+    \def\phi{20}
+    \def\L{1.8}
+    \def\theta{15}
+    \coordinate (u) at ({sin(\phi)},{-cos(\phi)});
+    \coordinate (t) at ({cos(\phi)},{sin(\phi)});
+    \coordinate (P) at ($(Q)+\L*(u)$);
+    
+    % --- Rope and payload ---
+    \draw[rope] (Q) -- (P);
+    \filldraw[fill=gray!30,draw=black] (P) circle (2pt) node[below right=2pt, note] {Payload};
+    
+    % --- Forces on quad ---
+    \draw[force,blue!70!black] (Q) -- ++(0,1.1) node[above, note] {$\bm{F}_{\text{thrust}}$};
+    \draw[force,red!80!black] (Q) -- ($(Q)+1.0*(u)$) node[midway, right, note] {$Q\,\bm{u}$};
+    \draw[force,red!60!black] (Q) -- ++(0,-1.1) node[below left, note] {$m_q g$};
+    \node[note] at (Q) [above left=1pt] {Quad COM $(x_q,z_q)$};
+    
+    % --- Forces on payload ---
+    \draw[force,red!80!black] (P) -- ($(P)+-0.9*(u)$) node[midway, right, note] {$-Q\,\bm{u}$};
+    \draw[force,red!60!black] (P) -- ++(0,-0.9) node[below right, note] {$m_p g$};
+    
+    % --- Unit vectors ---
+    \draw[-Latex,thick,gray!60] (Q) -- ($(Q)+0.8*(u)$) node[right, note] {$\bm{u}(\phi)$};
+    \draw[-Latex,thick,gray!60] (Q) -- ($(Q)+0.8*(t)$) node[right, note] {$\bm{t}(\phi)$};
+    
+    \end{tikzpicture}
+    \caption{Free-body diagram showing the forces acting on the quadcopter and the tethered payload.}
+    \label{fig:fbd}
+\end{figure}
+
+\subsection{Tether Geometry and Kinematic Derivations}
+\label{ap:tether_derivation}
+
+We consider planar motion of a quadcopter with a payload suspended beneath it by a massless, inextensible tether of variable length $\ell$. The tether configuration is parameterised by the swing angle $\phi$, measured from the vertical. Unit vectors aligned with and perpendicular to the tether are defined as
+\[
+\bm{u}(\phi) =
+\begin{bmatrix}
+\sin\phi \\[2pt] -\cos\phi
+\end{bmatrix},
+\qquad
+\bm{t}(\phi) =
+\begin{bmatrix}
+\cos\phi \\[2pt] \sin\phi
+\end{bmatrix}.
+\]
+
+The payload position is expressed as
+\[
+\bm{p}_p =
+\begin{bmatrix}
+x_q \\ z_q
+\end{bmatrix}
++ \ell\,\bm{u}(\phi),
+\]
+and differentiation yields
+\[
+\ddot{\bm{p}}_p =
+\begin{bmatrix}
+\ddot{x}_q \\[2pt] \ddot{z}_q
+\end{bmatrix}
++ (\ddot{\ell} - \ell \dot{\phi}^{2})\, \bm{u}
++ (2\dot{\ell}\dot{\phi} + \ell \ddot{\phi})\, \bm{t}.
+\]
+
+These expressions are used to derive the payload swing and tether tension equations presented in the main text.
+
+\subsection{PID Controller Implementation Details}
+\label{ap:pid}
+
+\subsubsection{Cascaded Control Structure}
+
+The PID controllers are arranged in a cascaded architecture, as shown in Fig.~\ref{fig:cascade}. Outer-loop controllers generate reference commands for inner-loop controllers, which stabilise the quadcopter attitude and vertical motion.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figs/PID.png}
+    \caption{Cascaded PID controller diagram}
+    \label{fig:cascade}
+\end{figure}
+
+\subsubsection{Control Allocation}
+
+The translational and rotational control outputs are mapped to individual rotor thrusts using a standard mixing matrix:
+\[
+\begin{bmatrix}
+T_1 \\ T_2 \\ T_3 \\ T_4
+\end{bmatrix}
+= M
+\begin{bmatrix}
+u_z \\ u_\theta
+\end{bmatrix},
+\]
+where $M$ is determined by the quadcopter geometry and rotor configuration.
+
+\subsubsection{Anti-Windup and Saturation Handling}
+
+To ensure stable behaviour under actuator limits, saturation bounds are imposed on all control outputs. Integral windup is mitigated by freezing the integral term whenever saturation occurs in a direction that would further increase the error:
+\[
+(u_i > u_{\max} \land e_i > 0) \;\lor\; (u_i < u_{\min} \land e_i < 0) \implies \dot{I}_i = 0
+\]
+This prevents integrator accumulation during saturation and enables smooth recovery once the system re-enters the linear operating regime.
+
+\subsection{\vehicle\ Specification of Formal Properties}
+\label{app:vehicle-spec}
+
+This appendix provides the complete \vehicle\ specification of the formal properties
+evaluated in Section~\ref{sec:vehicle-properties}. 
+
+\paragraph{Initialisation and helper methods (Listing \ref{lst:vehicle-init}).} We treat the network input as an $n$-dimensional real vector
+\texttt{State} containing the relevant state components and tracking errors, and the
+network output as a $d$-dimensional real vector \texttt{Ctrl} containing the control
+commands (system agnostic specification). The predicate \texttt{validState} encodes the bounded input domain
+$\mathcal{X}$ by enforcing component-wise lower/upper bounds
+(\texttt{minimumInputValues}, \texttt{maximumInputValues}).
+
+\begin{lstlisting}[language={haskell},caption={System-agnostic \vehicle\ specification initialisation.},label={lst:vehicle-init}]
+type State = Tensor Real [n] -- n-dim vector of states+errors
+type Ctrl  = Tensor Real [d] -- d-dim vector of control outputs
+
+-- Absolute value
+abs : Real -> Real
+abs r = if r >= 0 then r else -r
+
+-- Input domain (bounded quantification)
+minimumInputValues : State
+maximumInputValues : State
+
+validState : State -> Bool
+validState x = forall i . minimumInputValues ! i <= x ! i <= maximumInputValues ! i
+\end{lstlisting}
+
+\paragraph{Network definition and normalisation (Listing \ref{lst:vehicle-network}).}  The function \texttt{normalise} applies the same per-feature affine normalisation used during training, using the vectors named \texttt{meanScalingValues} ($\mu$) and \texttt{stdDevScalingValues} ($\sigma$). The network itself is declared as \texttt{@network ctrlNet : State -> Ctrl}, and \texttt{applyCtrl} wraps the network together with the normalisation. 
+
+\begin{lstlisting}[language={haskell},caption={Normalisation and definition of neural network in \vehicle.},label={lst:vehicle-network}]
+-- Normalisation
+@parameter
+meanScalingValues   : State    -- mu (per-input-feature mean)
+@parameter
+stdDevScalingValues : State    -- sd (per-input-feature std)
+
+normalise : State -> State
+normalise x =
+  foreach i . (x ! i - meanScalingValues ! i) / stdDevScalingValues ! i
+
+-- Network definition
+@network
+ctrlNet : State -> Ctrl
+
+applyCtrl : State -> Ctrl
+applyCtrl x = ctrlNet ( normalise x )
+\end{lstlisting}
+
+
+\paragraph{Constants used by properties (Listing \ref{lst:vehicle-constants}).} \texttt{u\_min} and \texttt{u\_max} are vectors describing the control bounds; \texttt{m} is the margin for Property~P1.2; \texttt{epsilon} is the “far-from-reference” threshold for Property~P2; and the vectors \texttt{eps\_eq} and \texttt{u\_quiet} define the equilibrium neighbourhood and allowed small-control region for Property~P3. The elements of \texttt{eps\_eq} and \texttt{u\_quiet} should always be positive to compare with absolute state and control values.
+
+
+\begin{lstlisting}[language={haskell},caption={\vehicle\ constants used by formal properties.},label={lst:vehicle-constants}]
+-- Constants used by properties 
+@parameter
+u_min : Ctrl    -- actuator lower bounds (vector)
+@parameter
+u_max : Ctrl    -- actuator upper bounds (vector)
+
+@parameter
+m : Real        -- margin for P1.2 (m > 0)
+
+@parameter
+epsilon : Real  -- "far from reference" threshold (>0) for P2
+@parameter
+eps_eq  : State -- "near equilibrium" threshold vector for P3
+@parameter
+u_quiet : Ctrl  -- quiet-control bound vector for P3
+\end{lstlisting}
+
+\paragraph{Formal properties.} Properties P1--P3 are described through Listings \ref{lst:p1}, \ref{lst:p2} and \ref{lst:p3}, respectively. 
+
+\begin{lstlisting}[language={haskell},caption={\vehicle\ specification for Properties P1 and P1.2.},label={lst:p1}]
+-- Property P1: Global Saturation Safety
+@property
+P1_global_saturation : Bool
+P1_global_saturation =
+  forall x .
+    validState x =>
+      forall i . u_min ! i <= (applyCtrl x) ! i <= u_max ! i
+
+-- Property P1.2: Saturation Safety with Margin
+@property
+P1_2_saturation_margin : Bool
+P1_2_saturation_margin =
+  forall x .
+    validState x =>
+      forall i . (u_min ! i - m) <= (applyCtrl x) ! i <= (u_max ! i + m)
+\end{lstlisting}
+
+Property P2 (Listing \ref{lst:p2}) affects one control channel. Therefore, if the property is to be applied over several control axes, different instances of the same property should be defined. Here, \texttt{e\_idx} and \texttt{u\_idx} are the corresponding state and control output indexes representing the error and control values of the relevant channel. For example, consider Property P2 wants to enforce that if the drone is too far left from the setpoint (the horizontal error $e_x$ is largely negative $e_x \le -\epsilon$), then the control output corresponding to the $x$-axis ($u_x$) should push to the right ($u_x > 0$). This corresponds to the $x$-channel, and \texttt{e\_idx} and \texttt{u\_idx} should be set as the indexes corresponding to $e_x$ and $u_x$ in the state and value vectors.
+
+% While we were not able to verify Property P2, it is worth noting that our NN control outputs are passed through a mixing matrix to obtain individual rotor thrusts (Appendix~\ref{ap:pid}). Therefore, even in the expert PID system we cannot guarantee a direct relationship between the channel-specific outputs and the corresponding thrusts applied to the system dynamics, which could support the unsatisfying verification results obtained for this property.
+
+\begin{lstlisting}[language={haskell},caption={\vehicle\ specification for Property P2.},label={lst:p2}]
+-- Property P2: Correct Control Direction at Extremes (example on one channel)
+@property
+P2_correct_direction : Bool
+P2_correct_direction =
+  forall x .
+    validState x =>
+      ( (x ! e_idx) >  epsilon => (applyCtrl x) ! u_idx < 0 ) and
+      ( (x ! e_idx) < -epsilon => (applyCtrl x) ! u_idx > 0 )
+\end{lstlisting}
+
+
+\begin{lstlisting}[language={haskell},caption={\vehicle\ specification for Property P3.},label={lst:p3}]
+-- Property P3: Quiet Control Near Equilibrium
+nearEquilibrium : State -> Bool
+nearEquilibrium x = forall i . abs (x ! i) <= eps_eq ! i
+
+@property
+P3_quiet_near_equilibrium : Bool
+P3_quiet_near_equilibrium =
+  forall x .
+    validState x and nearEquilibrium x =>
+      forall j . abs ((applyCtrl x) ! j) <= u_quiet ! j
+\end{lstlisting}
+
+%%%%%%%%%%%%%%% CORA %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+\subsection{CORA property specification and reachability setup}
+\label{app:cora}
+\lstinputlisting[caption={Closed-loop reachability specification in CORA}]{sections/appendix/cora1.m}
+
+%%%%%%%%%%%%%% END CORA %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Additional Explainability Visualizations}
+\label{app:xai}
+
+This appendix provides supplementary LIME and Integrated Gradients (IG) visualisations referenced in the main text (Section~\ref{sec:adv_xai}). We include per-sample LIME heatmaps for the normally trained and adversarially trained controllers, as well as per-sample difference maps that highlight how local feature reliance changes after adversarial training. We also report representative IG bar plots (clean vs.\ adversarial) together with the corresponding LIME drift values to illustrate stability under attack.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figs/xai/lime_normal_per_sample.png}
+    \caption{\textbf{Normal model: LIME feature importance per sample.} Each panel shows a heatmap of absolute LIME weights (\#outputs $\times$ \#features) for a randomly selected test sample. Darker cells indicate stronger local reliance.}
+    \label{fig:lime_normal_per_sample}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figs/xai/lime_advtrained_per_sample.png}
+    \caption{\textbf{Adversarially trained model: LIME feature importance per sample.} Compared to the normal model, feature importance is generally less spiky, suggesting reduced reliance on brittle feature pathways.}
+    \label{fig:lime_adv_per_sample}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figs/xai/lime_diff_per_sample.png}
+    \caption{\textbf{Per-sample change in LIME importance after adversarial training.} Heatmaps show $\Delta w = w_{\text{adv-trained}} - w_{\text{normal}}$ (per output $\times$ feature). Blue indicates decreased reliance after adversarial training; red indicates increased reliance.}
+    \label{fig:lime_diff_per_sample}
+\end{figure}
+
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.92\linewidth]{figs/xai/ig_clean_vs_adv_normal.png}
+    \caption{\textbf{Normal model: Integrated Gradients (clean vs.\ adversarial) with LIME drift.} The paired bars show IG attributions per feature for output $j{=}0$ on the clean input $x$ and the adversarial input $x_{\mathrm{adv}}$. The reported LIME drift ($0.565$) indicates a larger change in local explanation under attack.}
+    \label{fig:ig_lime_normal}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.92\linewidth]{figs/xai/ig_clean_vs_adv_advtrained.png}
+    \caption{\textbf{Adversarially trained model: Integrated Gradients (clean vs.\ adversarial) with LIME drift.} Compared to the normal model, both the IG profile shift and the LIME drift are smaller ($0.228$), indicating more stable feature reliance under adversarial perturbations.}
+    \label{fig:ig_lime_advtrained}
+\end{figure}
